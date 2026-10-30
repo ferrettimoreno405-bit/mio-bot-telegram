@@ -14,38 +14,69 @@ TOKEN_TELEGRAM = "9196191146:AAEv9VZI9m-fGHCkWIGL8rGgX1U-Yj9T-vY"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Il tuo database personalizzato (ha sempre la precedenza!)
+# Database fisso personalizzato
 CONOSCENZA = {
     "chi sei": "Sono la tua Intelligenza Artificiale personale e indipendente, creata da Moreno. Giro interamente sul mio codice Python nel cloud ed eseguo i tuoi comandi binari!",
     "come stai": "Sono attiva al cento per cento nei server cloud, i miei circuiti sono pronti!",
     "ciao": "Ciao Moreno! Sono la tua intelligenza artificiale. Come posso aiutarti sul telefono oggi?",
-    "aiuto": "Puoi parlarmi a voce, chiedermi di fare calcoli matematici scrivendo i numeri o farmi qualsiasi domanda su personaggi, storia e concetti!"
+    "aiuto": "Puoi chiedermi il meteo dicendo 'meteo domani', farmi domande su animali o concetti, oppure chiedermi di fare calcoli!"
 }
 
 def cerca_su_wikipedia(query_testo):
-    """Cerca su Wikipedia in italiano e restituisce un riassunto elementare di 2 frasi"""
+    """Cerca su Wikipedia in italiano e restituisce le prime due frasi della definizione"""
     try:
-        # Pulisce la richiesta dell'utente
-        argomento = query_testo.lower().replace("chi è", "").replace("cos'è", "").replace("cosa significa", "").replace("parlami di", "").strip()
-        argomento_enc = urllib.parse.quote(argomento)
+        # Pulisce la richiesta dell'utente per trovare solo l'argomento chiave
+        argomento = query_testo.lower().replace("chi è", "").replace("cos'è", "").replace("cosa significa", "").replace("parlami di", "").replace("quando fanno", "").replace("le galline quando fanno le uova", "gallina").strip()
         
-        # Chiama l'API ufficiale e pubblica di Wikipedia in italiano
+        # Se la domanda riguarda nello specifico le uova delle galline, ottimizziamo la ricerca
+        if "gallin" in query_testo.lower() and "uov" in query_testo.lower():
+            argomento = "Gallina"
+            
+        argomento_enc = urllib.parse.quote(argomento.capitalize())
+        
+        # URL corretto dell'API di Wikipedia in italiano per i riassunti
         url = f"https://wikipedia.org{argomento_enc}"
         req = urllib.request.Request(url, headers={'User-Agent': 'BotMoreno/1.0 (moreno@example.com)'})
         
         with urllib.request.urlopen(req, timeout=5) as response:
             data = json.loads(response.read().decode())
             if 'extract' in data:
-                # Estrae solo le prime due frasi del riassunto per non fare un vocale troppo lungo
                 frasi = data['extract'].split('.')
                 riassunto = ". ".join(frasi[:2]).strip() + "."
                 return riassunto
-    except:
-        pass
+    except Exception as e:
+        logging.error(f"Errore Wiki: {e}")
     return None
 
+def prendi_meteo():
+    """Recupera il meteo in tempo reale e per domani tramite coordinate geografiche pubbliche"""
+    try:
+        # Coordinate per la tua zona (Taranto)
+        url = "https://open-meteo.com"
+        req = urllib.request.Request(url, headers={'User-Agent': 'BotMoreno/1.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json.loads(response.read().decode())
+            
+            # Estrae i dati per domani (indice 1 della lista dei giorni)
+            temp_max = data['daily']['temperature_2m_max'][1]
+            temp_min = data['daily']['temperature_2m_min'][1]
+            code = data['daily']['weathercode'][1]
+            
+            # Traduce il codice meteo standard in parole semplici
+            stato = "sereno o poco nuvoloso"
+            if code in: stato = "parzialmente nuvoloso"
+            elif code in: stato = "nebbioso"
+            elif code in: stato = "piovoso"
+            elif code in: stato = "nevoso"
+            elif code in: stato = "temporalesco"
+            
+            return f"Previsioni meteo per domani nella tua zona: il tempo sarà principalmente {stato}. Si prevede una temperatura massima di {temp_max} gradi e una minima di {temp_min} gradi."
+    except Exception as e:
+        logging.error(f"Errore Meteo: {e}")
+    return "Mi dispiace Moreno, al momento non sono riuscita a connettermi al servizio meteo satellitare."
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await invia_voce(update, context, "Benvenuto! Sono la tua IA enciclopedica personale indipendente. Chiedimi qualsiasi cosa!")
+    await invia_voce(update, context, "Benvenuto! Sono la tua IA enciclopedica e meteo personale indipendente. Chiedimi pure che tempo farà domani o qualsiasi altra curiosità!")
 
 async def invia_voce(update: Update, context: ContextTypes.DEFAULT_TYPE, testo: str):
     chat_id = update.effective_chat.id
@@ -64,7 +95,13 @@ async def rispondi_telefono(update: Update, context: ContextTypes.DEFAULT_TYPE):
     testo_utente = update.message.text.strip()
     testo_lower = testo_utente.lower()
 
-    # 1. CONTROLLO SE È UN CALCOLO MATEMATICO
+    # 1. CONTROLLO SE STA CHIEDENDO IL METEO
+    if "meteo" in testo_lower or "tempo farà" in testo_lower or "pioggia" in testo_lower:
+        risposta_meteo = prendi_meteo()
+        await invia_voce(update, context, risposta_meteo)
+        return
+
+    # 2. CONTROLLO SE È UN CALCOLO MATEMATICO
     if any(c in testo_utente for c in ["+", "-", "*", "/", "x", ":"]) or any(char.isdigit() for char in testo_utente):
         espressione = testo_lower.replace("calcola", "").replace("quanto fa", "").replace("x", "*").replace(":", "/").strip()
         espressione = re.sub(r'[^0-9+\-*/().\s]', '', espressione)
@@ -76,24 +113,24 @@ async def rispondi_telefono(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except:
                 pass
 
-    # 2. CONTROLLO SE L'ARGOMENTO È NEL TUO DATABASE FISSO
+    # 3. CONTROLLO SE L'ARGOMENTO È NEL DATABASE FISSO
     for chiave, risposta in CONOSCENZA.items():
         if chiave in testo_lower:
             await invia_voce(update, context, risposta)
             return
 
-    # 3. CONNESSONE AUTOMATICA A WIKIPEDIA SE NON CONOSCE LA RISPOSTA
+    # 4. CONNESSONE AUTOMATICA A WIKIPEDIA SE NON CONOSCE LA RISPOSTA
     risposta_wiki = cerca_su_wikipedia(testo_utente)
     if risposta_wiki:
         await invia_voce(update, context, risposta_wiki)
         return
 
-    # 4. DEFAULT SE WIKIPEDIA NON TROVA LA PAGINA
-    await invia_voce(update, context, "Mi dispiace Moreno, non ho trovato informazioni su questo argomento nemmeno su Wikipedia.")
+    # 5. DEFAULT SE NON TROVA NULLA
+    await invia_voce(update, context, "Mi dispiace Moreno, non ho trovato informazioni precise su questo argomento nel mio cervello locale o su Wikipedia.")
 
 # --- PORTA PER IL PIANO GRATUITO DI RENDER ---
 async def handle_home(request):
-    return web.Response(text="IA Online con Wikipedia!")
+    return web.Response(text="IA Online con Wikipedia e Meteo!")
 
 async def start_server():
     app = web.Application()
