@@ -5,14 +5,12 @@ import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from gtts import gTTS
+from aiohttp import web
 
-# Il tuo token ufficiale di Telegram
-TOKEN_TELEGRAM = "9196191146:AAHnD-DuIEchd34MIWVqpDqvQLDFphBs504"
+TOKEN_TELEGRAM = "9196191146:AAEv9VZI9m-fGHCkWIGL8rGgX1U-Yj9T-vY"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# --- IL DATABASE DELLE CONOSCENZE DELLA TUA IA ---
-# Puoi allungare questo elenco inserendo nuove domande e risposte!
 CONOSCENZA = {
     "chi sei": "Sono la tua Intelligenza Artificiale personale e indipendente, creata da Moreno. Giro interamente sul mio codice Python nel cloud ed eseguo i tuoi comandi binari!",
     "come stai": "Sono attiva al cento per cento nei server cloud, i miei circuiti sono pronti!",
@@ -24,67 +22,64 @@ CONOSCENZA = {
 }
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    testo_benvenuto = "Benvenuto! Sono la tua IA personale indipendente e ora posso anche parlarti! Chiedimi qualcosa."
-    await invia_voce(update, context, testo_benvenuto)
+    await invia_voce(update, context, "Benvenuto! Sono la tua IA personale indipendente e ora posso anche parlarti! Chiedimi qualcosa.")
 
 async def invia_voce(update: Update, context: ContextTypes.DEFAULT_TYPE, testo: str):
-    """Funzione che trasforma il testo in un file vocale e lo invia su Telegram"""
     chat_id = update.effective_chat.id
     filename = f"voce_{chat_id}.mp3"
-    
     try:
-        # Mostra l'effetto "sta registrando un audio..." su Telegram
         await context.bot.send_chat_action(chat_id=chat_id, action="record_voice")
-        
-        # Genera l'audio in italiano
         tts = gTTS(text=testo, lang='it', slow=False)
         tts.save(filename)
-        
-        # Invia il file vocale in chat
         with open(filename, 'rb') as voice_file:
             await context.bot.send_voice(chat_id=chat_id, voice=voice_file)
-            
-        # Rimuove il file temporaneo dal server per non sprecare spazio
         os.remove(filename)
     except Exception as e:
-        logging.error(f"Errore nella generazione della voce: {e}")
-        # Invia comunque il testo se la voce fallisce
         await update.message.reply_text(testo)
 
 async def rispondi_telefono(update: Update, context: ContextTypes.DEFAULT_TYPE):
     testo_utente = update.message.text.strip()
     testo_lower = testo_utente.lower()
 
-    # 1. CONTROLLO SE È UN CALCOLO MATEMATICO
     if any(c in testo_utente for c in ["+", "-", "*", "/", "x", ":"]) or any(char.isdigit() for char in testo_utente):
         espressione = testo_lower.replace("calcola", "").replace("quanto fa", "").replace("x", "*").replace(":", "/").strip()
         espressione = re.sub(r'[^0-9+\-*/().\s]', '', espressione)
-        
         if espressione:
             try:
                 risultato = eval(espressione)
-                risposta_calcolo = f"Il risultato del calcolo è {risultato}"
-                await invia_voce(update, context, risposta_calcolo)
+                await invia_voce(update, context, f"Il risultato del calcolo è {risultato}")
                 return
             except:
                 pass
 
-    # 2. CONTROLLO SE L'ARGOMENTO È NEL DATABASE
     for chiave, risposta in CONOSCENZA.items():
         if chiave in testo_lower:
             await invia_voce(update, context, risposta)
             return
 
-    # 3. RISPOSTA DI DEFAULT SE NON TROVA L'ARGOMENTO
-    risposta_default = f"Ho ricevuto il tuo messaggio. Non ho ancora questa informazione nel mio database delle conoscenze."
-    await invia_voce(update, context, risposta_default)
+    await invia_voce(update, context, "Ho ricevuto il tuo messaggio. Non ho ancora questa informazione nel mio database delle conoscenze.")
+
+# --- PORTA FINTA PER INGANNARE RENDER GRATIS ---
+async def handle_home(request):
+    return web.Response(text="IA Online!")
+
+async def start_server():
+    app = web.Application()
+    app.router.add_get('/', handle_home)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 10000) # Render usa la porta 10000 di default
+    await site.start()
 
 def main():
     application = Application.builder().token(TOKEN_TELEGRAM).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, rispondi_telefono))
     
-    print("IA Telefono Vocale avviata...")
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(start_server())
+    
     application.run_polling()
 
 if __name__ == '__main__':
