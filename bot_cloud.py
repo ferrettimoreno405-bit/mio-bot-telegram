@@ -56,15 +56,20 @@ async def start_server():
     print("Server HTTP per il PC avviato sulla porta 8080")
 
 def main():
-    # Avvia sia il bot Telegram che il server Web nello stesso ciclo asincrono
-    loop = asyncio.get_event_loop()
-    
+    def main():
     application = Application.builder().token(TOKEN_TELEGRAM).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, gestisci_comandi))
     
+    # Crea un nuovo ciclo di eventi asincrono corretto per Python moderno
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
     # Avvia il server di comunicazione
     loop.run_until_complete(start_server())
+    
+    print("IA Cloud in esecuzione...")
+    application.run_polling()
     
     print("IA Cloud in esecuzione...")
     application.run_polling()
