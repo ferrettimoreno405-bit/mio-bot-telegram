@@ -45,7 +45,7 @@ def cerca_su_wikipedia(query_testo):
     return None
 
 def prendi_meteo():
-    """Recupera il meteo in tempo reale e per domani tramite coordinate geografiche pubbliche (Taranto)"""
+    """Recupera il meteo tramite coordinate geografiche pubbliche (Taranto)"""
     try:
         url = "https://open-meteo.com"
         req = urllib.request.Request(url, headers={'User-Agent': 'BotMoreno/1.0'})
@@ -56,17 +56,24 @@ def prendi_meteo():
             temp_min = data['daily']['temperature_2m_min'][1]
             code = data['daily']['weathercode'][1]
             
-            stato = "sereno o poco nuvoloso"
-            if code in: stato = "parzialmente nuvoloso"
-            elif code in: stato = "nebbioso"
-            elif code in: stato = "piovoso"
-            elif code in: stato = "nevoso"
-            elif code in: stato = "temporalesco"
+            # Controllo dei codici senza usare liste numeriche per evitare bug di testo
+            if code == 0:
+                stato = "sereno"
+            elif code < 4:
+                stato = "parzialmente nuvoloso"
+            elif code < 50:
+                stato = "nebbioso"
+            elif code < 70:
+                stato = "piovoso"
+            elif code < 85:
+                stato = "nevoso"
+            else:
+                stato = "temporalesco"
             
             return f"Previsioni meteo per domani nella tua zona: il tempo sarà principalmente {stato}. Si prevede una temperatura massima di {temp_max} gradi e una minima di {temp_min} gradi."
     except Exception as e:
         logging.error(f"Errore Meteo: {e}")
-    return "Mi dispiace Moreno, al momento non sono riuscita a connettermi al servizio meteo."
+    return "Mi dispiace Moreno, al momento non sono riuscita a connettermi al servizio meteo satellitare."
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await invia_voce(update, context, "Benvenuto! Sono la tua IA enciclopedica e meteo personale indipendente. Chiedimi pure che tempo farà domani o qualsiasi altra curiosità!")
@@ -90,7 +97,7 @@ async def rispondi_telefono(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if "meteo" in testo_lower or "tempo farà" in testo_lower or "pioggia" in testo_lower:
         risposta_meteo = prendi_meteo()
-        await invia_voce(update, context, risposta_meteo)
+        await invia_voce(update, context, respuesta_meteo=risposta_meteo)
         return
 
     if any(c in testo_utente for c in ["+", "-", "*", "/", "x", ":"]) or any(char.isdigit() for char in testo_utente):
@@ -104,9 +111,9 @@ async def rispondi_telefono(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except:
                 pass
 
-    for chiave, risposta in CONOSCENZA.items():
+    for chiave, respuesta in CONOSCENZA.items():
         if chiave in testo_lower:
-            await invia_voce(update, context, risposta)
+            await invia_voce(update, context, respuesta)
             return
 
     risposta_wiki = cerca_su_wikipedia(testo_utente)
