@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from gtts import gTTS
 
 # Il tuo token ufficiale di Telegram
-TOKEN_TELEGRAM = "9196191146:AAEv9VZI9m-fGHCkWIGL8rGgX1U-Yj9T-vY"
+TOKEN_TELEGRAM = "9196191146:AAHnD-DuIEchd34MIWVqpDqvQLDFphBs504"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
