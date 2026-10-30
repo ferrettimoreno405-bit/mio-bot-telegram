@@ -10,7 +10,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from gtts import gTTS
 from aiohttp import web
 
-TOKEN_TELEGRAM = "9196191146:AAEv9VZI9m-fGHCkWIGL8rGgX1U-Yj9T-vY"
+TOKEN_TELEGRAM = "9196191146:AAFGba6ibA1EIg9sg9C78DgT6Ih5kLhdcDM"
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
